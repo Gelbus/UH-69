@@ -5,6 +5,13 @@ from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QGridLayout,
 from PyQt5.QtCore import Qt, QSize
 from PyQt5.QtGui import QMouseEvent
 
+import cv2
+import numpy as np
+from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QVBoxLayout
+from PyQt5.QtGui import QPixmap, QImage
+from PyQt5.QtCore import QThread, pyqtSignal, Qt
+from PyQt5.QtCore import pyqtSlot   # Именно так!
+import time
 
 class MapWidget(QLabel):
     # Собственный виджет карты
@@ -18,7 +25,7 @@ class MapWidget(QLabel):
                 border: 1px solid black;
             """
         )
-        self.setFixedSize(1024, 300)  # Set a minimum size
+        self.setFixedSize(512, 384)
         self.last_pos = None
 
     def mousePressEvent(self, event: QMouseEvent):
@@ -34,6 +41,38 @@ class MapWidget(QLabel):
 
     def mouseReleaseEvent(self, event: QMouseEvent):
         self.last_pos = None
+
+
+class VideoThread(QThread):
+    """Поток для захвата видео из OpenCV"""
+    change_pixmap_signal = pyqtSignal(np.ndarray)  # Передаём numpy-массив (кадр)
+
+    def __init__(self):
+        super().__init__()
+        self._run_flag = True
+        self.url = 'http://192.168.1.23:5000/'
+
+
+    def run(self):
+        cap = cv2.VideoCapture(self.url)
+
+        while self._run_flag:
+            ret, frame = cap.read()
+
+            if ret:
+                self.change_pixmap_signal.emit(frame)
+            else:
+                print("Кадр не получен, переподключаемся...")
+                cap.release()
+                cap = cv2.VideoCapture(self.url)
+                time.sleep(1)  # небольшая пауза перед повторным подключением
+                continue
+        cap.release()
+
+    def stop(self):
+        """Останавливаем поток"""
+        self._run_flag = False
+        self.wait()
 
 
 class MainWindow(QMainWindow):
@@ -103,16 +142,6 @@ class MainWindow(QMainWindow):
         self.camera1_label.setFixedSize(512, 384)
         camera_top_layout.addWidget(self.camera1_label)
 
-
-        self.camera2_label = QLabel("No signal")
-        self.camera2_label.setStyleSheet("""
-            background-color: black;
-            color: red;
-            qproperty-alignment: AlignCenter;
-            """)
-        self.camera2_label.setFixedSize(512, 384)
-        camera_top_layout.addWidget(self.camera2_label)
-
         right_layout.addLayout(camera_top_layout)
 
 
@@ -124,6 +153,11 @@ class MainWindow(QMainWindow):
         # Добавляю левый и правый столбцы на главный виджет
         main_layout.addLayout(left_layout, 0, 0)
         main_layout.addLayout(right_layout, 0, 1)
+
+        # Запускаем поток
+        self.thread = VideoThread()
+        self.thread.change_pixmap_signal.connect(self.update_image)
+        self.thread.start()
 
         # Так я могу прятать кнопки
         # self.button2.hide()
@@ -139,10 +173,19 @@ class MainWindow(QMainWindow):
         # This function would be called by a QTimer in a real implementation
         pass
 
-    def update_camera_feeds(self):
-        """Placeholder for updating camera image feeds."""
-        # This function would receive image data and update the QLabel pixmaps
-        pass
+    @pyqtSlot(np.ndarray)
+    def update_image(self, cv_img):
+        """Преобразуем кадр OpenCV в QPixmap и отображаем"""
+        # BGR → RGB
+        rgb_image = cv2.cvtColor(cv_img, cv2.COLOR_BGR2RGB)
+        h, w, ch = rgb_image.shape
+        bytes_per_line = ch * w
+        qt_image = QImage(rgb_image.data, w, h, bytes_per_line, QImage.Format_RGB888)
+        pixmap = QPixmap.fromImage(qt_image)
+
+        # Масштабируем под размер QLabel (с сохранением пропорций)
+        # scaled_pixmap = pixmap.scaled(self.camera1_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        self.camera1_label.setPixmap(pixmap)
 
 
 if __name__ == "__main__":
