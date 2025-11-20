@@ -13,31 +13,31 @@ from PyQt5.QtCore import QThread, pyqtSignal, Qt
 from PyQt5.QtCore import pyqtSlot   # Именно так!
 import time
 
-class MapWidget(QLabel):
-    # Собственный виджет карты
 
+
+class MapWidget(QLabel):
     def __init__(self):
         super().__init__()
         self.setMouseTracking(True) # Отслеживать мышь
         self.setStyleSheet(
             """
                 background-color: lightgray;
-                border: 1px solid black;
+                border: 10px solid green;
+                border-radius: 15px;
             """
         )
-        self.setFixedSize(512, 384)
+        self.setFixedSize(640, 360)
+        self.setPixmap(QPixmap("../data/maps/map1.png"))
         self.last_pos = None
 
     def mousePressEvent(self, event: QMouseEvent):
         if event.button() == Qt.LeftButton:
-            print(f"Map clicked at: {event.pos()}")
-        self.last_pos = event.pos()
+            print(f"Start at: {event.pos()}")
 
-    def mouseMoveEvent(self, event: QMouseEvent):
-        # Basic drawing functionality
-        if event.buttons() & Qt.LeftButton and self.last_pos:
-            print(f"Drawing from {self.last_pos} to {event.pos()}")
-            self.last_pos = event.pos()
+        elif event.button() == Qt.RightButton:
+            print(f"Target at: {event.pos()}")
+
+        self.last_pos = event.pos()
 
     def mouseReleaseEvent(self, event: QMouseEvent):
         self.last_pos = None
@@ -111,13 +111,13 @@ class MainWindow(QMainWindow):
         button_layout = QVBoxLayout(self.button_area)
         button_layout.setAlignment(Qt.AlignBottom)
 
-        self.button1 = QPushButton("Button 1")
+        self.button1 = QPushButton("Автономное управление")
         self.button1.setFixedSize(300, 50)
 
-        self.button2 = QPushButton("Button 2")
+        self.button2 = QPushButton("Ручное управление")
         self.button2.setFixedSize(300, 50)
 
-        self.button3 = QPushButton("Button 3")
+        self.button3 = QPushButton("Демонстрация")
         self.button3.setFixedSize(300, 50)
 
         button_layout.addWidget(self.button1)
@@ -138,8 +138,10 @@ class MainWindow(QMainWindow):
             background-color: black;
             color: red;
             qproperty-alignment: AlignCenter;
+            border: 10px solid red;
+            border-radius: 15px;
             """)
-        self.camera1_label.setFixedSize(512, 384)
+        self.camera1_label.setFixedSize(640, 360)
         camera_top_layout.addWidget(self.camera1_label)
 
         right_layout.addLayout(camera_top_layout)
