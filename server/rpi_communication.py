@@ -6,13 +6,6 @@ import json
 import cv2
 import numpy as np
 
-class RpiSignals(QObject):
-    telemetry_received = pyqtSignal(dict)   # новые данные с Pi
-    command_sent = pyqtSignal(str)          # команда ушла
-    error = pyqtSignal(str)                 # ошибка сети
-    connected = pyqtSignal()                # первое подключение
-    disconnected = pyqtSignal()
-
 
 class VideoThread(QThread):
     """Поток для захвата видео из OpenCV"""
@@ -45,6 +38,15 @@ class VideoThread(QThread):
         self._run_flag = False
         self.wait()
 
+
+class RpiSignals(QObject):
+    telemetry_received = pyqtSignal(dict)   # новые данные с Pi
+    command_sent = pyqtSignal(str)          # команда ушла
+    error = pyqtSignal(str)                 # ошибка сети
+    connected = pyqtSignal()                # первое подключение
+    disconnected = pyqtSignal()
+
+
 class RpiCommunicationThread(QThread):
     change_pixmap_signal = pyqtSignal(np.ndarray)  # Передаём numpy-массив (кадр)
 
@@ -55,6 +57,7 @@ class RpiCommunicationThread(QThread):
         self.running = True
         self.pending_command = None
         self.pending_path = None  # для отправки маршрута
+        self.pending_yaw = None
         self.signals = RpiSignals()
 
 
@@ -66,8 +69,8 @@ class RpiCommunicationThread(QThread):
                 if self.pending_command:
                     self._send_command(self.pending_command)
                     self.pending_command = None
-                if self.pending_path:
-                    self._send_path(self.pending_path)
+                if self.pending_path and (not self.pending_yaw is None):
+                    self._send_init(self.pending_path, self.pending_yaw)
                     self.pending_path = None
 
                 # 2. Запрашиваем телеметрию
@@ -94,12 +97,14 @@ class RpiCommunicationThread(QThread):
         if r.status_code == 200:
             self.signals.command_sent.emit(cmd)
 
-    def _send_path(self, path_list):
+    def _send_init(self, path_list, yaw):
         payload = {
             "command": "path",
             "path": path_list,  # [[x1,y1], [x2,y2], ...]
+            "yaw": yaw,
             "from": "server"
         }
+        print(payload)
         r = requests.post(f"{self.server_url}/send", json=payload, timeout=10)
         if r.status_code == 200:
             self.signals.command_sent.emit("autonomous_path")
@@ -114,9 +119,9 @@ class RpiCommunicationThread(QThread):
     def send_simple_command(self, cmd):
         self.pending_command = cmd
 
-    def send_path(self, path_points):
-        # path_points — список кортежей (x, y)
+    def send_init(self, path_points, yaw):
         self.pending_path = path_points#[[float(x), float(y)] for x, y in path_points]
+        self.pending_yaw = yaw
 
     def stop(self):
         self.running = False

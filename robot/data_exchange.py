@@ -1,27 +1,23 @@
-# server.py
-import random
+import socket
 
 from flask import Flask, Response, request, jsonify
-import threading
-import time
 import cv2
+import os
 
 
 app = Flask(__name__)
-
 # Здесь будут храниться последние данные от клиента (например, команды)
 latest_command = "ожидание..."
 last_data_from_client = {}
 
 # Открываем камеру через OpenCV
-cap = cv2.VideoCapture(0)
+cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
 cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
 cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 360)
 cap.set(cv2.CAP_PROP_FPS, 30)
 cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
 
 platform = None
-
 
 def generate_frames():
     while True:

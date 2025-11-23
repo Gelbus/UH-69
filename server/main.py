@@ -1,25 +1,14 @@
 import sys
-from turtledemo.penrose import start
-
-from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QGridLayout,
-                             QVBoxLayout, QHBoxLayout, QListWidget, QPushButton,
-                             QLabel, QSizePolicy)
-from PyQt5.QtCore import Qt, QSize
-from PyQt5.QtGui import QMouseEvent
-
 import cv2
 import numpy as np
-from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QVBoxLayout
-from PyQt5.QtGui import QPixmap, QImage
-from PyQt5.QtCore import QThread, pyqtSignal, Qt
-from PyQt5.QtCore import pyqtSlot   # Именно так!
-import time
+
+from PyQt5.QtGui import QPixmap, QImage, QPainter, QPen, QColor
+from PyQt5.QtCore import Qt, pyqtSlot, QPoint
+from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QGridLayout,
+                             QVBoxLayout, QHBoxLayout, QListWidget, QPushButton,
+                             QLabel)
+
 from astar import PathGenerator
-
-from PyQt5.QtWidgets import QLabel, QApplication
-from PyQt5.QtCore import Qt, QPoint
-from PyQt5.QtGui import QPixmap, QPainter, QPen, QColor
-
 import rpi_communication as rc
 
 
@@ -231,7 +220,6 @@ class MainWindow(QMainWindow):
 
     def _to_tuple_pos(self, qtpos):
         pos = (qtpos.x(), qtpos.y())
-        print(pos)
         return pos
 
 
@@ -256,8 +244,10 @@ class MainWindow(QMainWindow):
         data = [waypoints1, waypoints2]
         self.map_widget.set_lines(data)
 
+        yaw = 0
+
         # === ОТПРАВЛЯЕМ ПУТЬ НА МАЛИНУ ===
-        self.rpi_thread.send_path(data)
+        self.rpi_thread.send_init(data, yaw)
 
     @pyqtSlot(np.ndarray)
     def update_image(self, cv_img):
